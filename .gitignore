@@ -172,3 +172,9 @@ tags
 
 # ruff
 .ruff_cache
+
+# Custom
+examples/dreambooth/ckpts/
+examples/dreambooth/configs/
+examples/dreambooth/data/
+examples/dreambooth/wandb/

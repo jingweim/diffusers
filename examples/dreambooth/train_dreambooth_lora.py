@@ -108,8 +108,12 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
         raise ValueError(f"{model_class} is not supported.")
 
 
-def parse_args(input_args=None):
-    parser = argparse.ArgumentParser(description="Simple example of a training script.")
+def config_parser():
+    import configargparse
+    parser = configargparse.ArgumentParser(description="Simple example of a training script.")
+    parser.add_argument('--config', is_config_file=True, required=True, 
+                        help='config file path')
+
     parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
@@ -369,10 +373,7 @@ def parse_args(input_args=None):
         "--enable_xformers_memory_efficient_attention", action="store_true", help="Whether or not to use xformers."
     )
 
-    if input_args is not None:
-        args = parser.parse_args(input_args)
-    else:
-        args = parser.parse_args()
+    args = parser.parse_args()
 
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
@@ -921,7 +922,7 @@ def main(args):
                 break
 
         if accelerator.is_main_process:
-            if args.validation_prompt is not None and epoch % args.validation_epochs == 0:
+            if args.validation_prompt is not None and (epoch+1) % args.validation_epochs == 0:
                 logger.info(
                     f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
                     f" {args.validation_prompt}."
@@ -1015,5 +1016,5 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    args = config_parser()
     main(args)
