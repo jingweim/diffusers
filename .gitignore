@@ -178,3 +178,4 @@ examples/dreambooth/ckpts/
 examples/dreambooth/configs/
 examples/dreambooth/data/
 examples/dreambooth/wandb/
+examples/dreambooth/prior/
