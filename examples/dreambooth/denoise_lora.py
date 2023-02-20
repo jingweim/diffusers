@@ -1,10 +1,14 @@
 import os
 import cv2
 import torch
+from PIL import Image
 import imageio.v3 as iio
+import torchvision.transforms.functional as TF
 
+from accelerate.utils import set_seed
 from train_dreambooth_lora import config_parser
 from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler, DDPMScheduler
+
 
 # helper functions
 def center_crop_and_resize(img, res):
@@ -31,8 +35,8 @@ def center_crop_and_resize(img, res):
 
 from typing import Any, Callable, Dict, List, Optional, Union
 @torch.no_grad()
-def denoise(
-    pipe, imgs, t_start,
+def denoise_step(
+    pipe, imgs, t_start, weight_dtype,
     prompt: Union[str, List[str]] = None,
     height: Optional[int] = None,
     width: Optional[int] = None,
@@ -217,60 +221,85 @@ def denoise(
 
     return image
 
+def denoise(args, img_path, img_name, run, checkpoint, prompt_add, t_start):
+
+    # set seed
+    seed = args.seed
+    set_seed(seed)
+
+    # load arguments
+    model_id = args.output_dir
+    prompt = args.instance_prompt
+
+    # fixed arguments
+    weight_dtype = torch.float16
+    num_images_per_prompt = 10
+    num_inference_steps = 50
+    guidance_scale = 7.5
+
+    # load image into tensor and range (-1, 1)
+    img = iio.imread(img_path)
+    img = center_crop_and_resize(img, args.resolution)
+    img = Image.fromarray(img)
+    img = TF.to_tensor(img)
+    img.unsqueeze_(0)
+    imgs = torch.cat([img]*num_images_per_prompt, dim=0)
+    imgs = (imgs*2)-1
+
+    # skip if already generated
+    output_dir = os.path.join(args.output_dir, f'denoise/{img_name}/{checkpoint}/{run}')
+    if os.path.exists(output_dir):
+        print(checkpoint, run, 'skipped')
+        return
+
+    # make output folder
+    os.makedirs(output_dir)
+
+    # load run-specific model and prompt
+    checkpoint = "" if checkpoint == 'checkpoint-last' else checkpoint
+    model_id += f'/{checkpoint}'
+    prompt += f', {prompt_add}'
+
+    # save arguments to text file
+    with open(os.path.join(output_dir, 'args.txt'), 'w') as f:
+        f.write(f'prompt = {prompt}\n')
+        f.write(f'model_id = {model_id}\n')
+        f.write(f"weight_dtype = {'float16' if weight_dtype == torch.float16 else 'float32'}\n")
+        f.write(f'num_images_per_prompt = {num_images_per_prompt}\n')
+        f.write(f'num_inference_steps = {num_inference_steps}\n')
+        f.write(f't_start = {t_start}\n')
+        f.write(f'guidance_scale = {guidance_scale}\n')
+        f.write(f'img_path = {img_path}\n')
+
+    # load model
+    pipe = DiffusionPipeline.from_pretrained(args.pretrained_model_name_or_path, \
+                                            torch_dtype=weight_dtype)
+    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.to("cuda")
+    pipe.unet.load_attn_procs(model_id)
+
+    # generate images
+    images = denoise_step(pipe, imgs, t_start, weight_dtype, prompt, num_inference_steps=num_inference_steps, \
+                num_images_per_prompt=num_images_per_prompt)
+    for i, image in enumerate(images):
+        image.save(os.path.join(output_dir, '%03d.png' % i))
+
+
 # load args from config
 args = config_parser()
-model_id = args.output_dir
-prompt = args.instance_prompt
 
-# fixed arguments
-weight_dtype = torch.float16
-num_images_per_prompt = 10
-num_inference_steps = 50
-guidance_scale = 7.5
+# execute different runs
+with open(os.path.join(args.output_dir, 'denoise.txt'), 'r') as f:
+    lines = f.readlines()
 
-# arguments vary per run
-run = 'run_debug'
-t_start = 50
-img_path = 'data/denoise/steve.jpg'
-checkpoint = 'checkpoint-1020'
-model_id += f'/{checkpoint}'
-prompt += ""
-
-# load image into tensor and range (-1, 1)
-from PIL import Image
-import torchvision.transforms.functional as TF
-img = iio.imread(img_path)
-img = center_crop_and_resize(img, args.resolution)
-img = Image.fromarray(img)
-img = TF.to_tensor(img)
-img.unsqueeze_(0)
-imgs = torch.cat([img]*num_images_per_prompt, dim=0)
-imgs = (imgs*2)-1
-
-# make output folder
-output_dir = os.path.join(args.output_dir, f'denoise/{run}')
-os.makedirs(output_dir, exist_ok=True)
-
-# save arguments to text file
-with open(os.path.join(output_dir, 'args.txt'), 'w') as f:
-    f.write(f'prompt = {prompt}\n')
-    f.write(f'model_id = {model_id}\n')
-    f.write(f"weight_dtype = {'float16' if weight_dtype == torch.float16 else 'float32'}\n")
-    f.write(f'num_images_per_prompt = {num_images_per_prompt}\n')
-    f.write(f'num_inference_steps = {num_inference_steps}\n')
-    f.write(f't_start = {t_start}\n')
-    f.write(f'guidance_scale = {guidance_scale}\n')
-    f.write(f'img_path = {img_path}\n')
-
-# load model
-pipe = DiffusionPipeline.from_pretrained(args.pretrained_model_name_or_path, \
-                                         torch_dtype=weight_dtype)
-pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
-pipe.to("cuda")
-pipe.unet.load_attn_procs(model_id)
-
-# generate images
-images = denoise(pipe, imgs, t_start, prompt, num_inference_steps=num_inference_steps, \
-              num_images_per_prompt=num_images_per_prompt)
-for i, image in enumerate(images):
-    image.save(os.path.join(output_dir, '%03d.png' % i))
+for i, line in enumerate(lines):
+    if line.startswith('#'):
+        run = line[2:].strip()
+        checkpoint = lines[i+1].strip()
+        prompt_add = lines[i+2].strip()
+        img_path = lines[i+3].strip()
+        img_name = lines[i+4].strip()
+        t_start = int(lines[i+5].strip())
+        denoise(args, img_path, img_name, run, checkpoint, prompt_add, t_start)
+    else:
+        continue
