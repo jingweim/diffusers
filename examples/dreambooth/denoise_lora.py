@@ -238,7 +238,7 @@ def denoise(args, img_path, img_name, run, checkpoint, prompt_add, t_start):
     guidance_scale = 7.5
 
     # load image into tensor and range (-1, 1)
-    img = iio.imread(img_path)
+    img = iio.imread(img_path)[..., :3]
     img = center_crop_and_resize(img, args.resolution)
     img = Image.fromarray(img)
     img = TF.to_tensor(img)
@@ -301,5 +301,3 @@ for i, line in enumerate(lines):
         img_name = lines[i+4].strip()
         t_start = int(lines[i+5].strip())
         denoise(args, img_path, img_name, run, checkpoint, prompt_add, t_start)
-    else:
-        continue

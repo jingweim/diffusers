@@ -74,5 +74,3 @@ for i, line in enumerate(lines):
         checkpoint = lines[i+1].strip()
         prompt_add = lines[i+2].strip()
         generate(args, run, checkpoint, prompt_add)
-    else:
-        continue

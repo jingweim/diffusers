@@ -156,6 +156,13 @@ def config_parser():
         help="The prompt with identifier specifying the instance",
     )
     parser.add_argument(
+        "--instance_token",
+        type=str,
+        default=None,
+        required=True,
+        help="The dreambooth token, only used when instance_prompt is a path",
+    )
+    parser.add_argument(
         "--class_prompt",
         type=str,
         default=None,
@@ -414,6 +421,7 @@ class DreamBoothDataset(Dataset):
         self,
         instance_data_root,
         instance_prompt,
+        instance_token,
         tokenizer,
         class_data_root=None,
         class_prompt=None,
@@ -430,7 +438,18 @@ class DreamBoothDataset(Dataset):
 
         self.instance_images_path = list(Path(instance_data_root).iterdir())
         self.num_instance_images = len(self.instance_images_path)
-        self.instance_prompt = instance_prompt
+        if os.path.exists(instance_prompt):
+            with open(instance_prompt, 'r') as f:
+                lines = f.readlines()
+
+            self.instance_prompt = {}
+            for i, line in enumerate(lines):
+                if line.startswith('#'):
+                    k = Path(line[2:].strip())
+                    v = lines[i+1].strip()
+                    self.instance_prompt[k] = instance_token + ', ' + v
+        else:
+            self.instance_prompt = instance_prompt
         self._length = self.num_instance_images
 
         if class_data_root is not None:
@@ -457,12 +476,14 @@ class DreamBoothDataset(Dataset):
 
     def __getitem__(self, index):
         example = {}
-        instance_image = Image.open(self.instance_images_path[index % self.num_instance_images])
+        instance_images_path = self.instance_images_path[index % self.num_instance_images]
+        instance_image = Image.open(instance_images_path)
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
         example["instance_images"] = self.image_transforms(instance_image)
+        instance_prompt = self.instance_prompt[instance_images_path] if type(self.instance_prompt) == dict else self.instance_prompt
         example["instance_prompt_ids"] = self.tokenizer(
-            self.instance_prompt,
+            instance_prompt,
             truncation=True,
             padding="max_length",
             max_length=self.tokenizer.model_max_length,
@@ -762,6 +783,7 @@ def main(args):
     train_dataset = DreamBoothDataset(
         instance_data_root=args.instance_data_dir,
         instance_prompt=args.instance_prompt,
+        instance_token=args.instance_token,
         class_data_root=args.class_data_dir if args.with_prior_preservation else None,
         class_prompt=args.class_prompt,
         tokenizer=tokenizer,
