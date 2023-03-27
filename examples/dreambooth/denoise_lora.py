@@ -229,7 +229,7 @@ def denoise(args, img_path, img_name, run, checkpoint, prompt_add, t_start):
 
     # load arguments
     model_id = args.output_dir
-    prompt = args.instance_prompt
+    prompt = args.instance_token if os.path.exists(args.instance_prompt) else args.instance_prompt
 
     # fixed arguments
     weight_dtype = torch.float16

@@ -20,6 +20,7 @@ paths = sorted(glob.glob(img_dir+'/*.png'))
 
 # write caption to txt file
 out_path = img_dir.replace('/images', '_t5xl_l2_r1-5.txt')
+# out_path = img_dir + '_t5xl_l2_r1-5.txt'
 out = open(out_path, "a+")
 for path in tqdm(paths):
     raw_image = Image.open(path).convert("RGB")
