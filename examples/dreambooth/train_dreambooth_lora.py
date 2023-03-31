@@ -135,11 +135,11 @@ def config_parser():
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
     parser.add_argument(
-        "--instance_data_dir",
+        "--instance_data",
         type=str,
         default=None,
         required=True,
-        help="A folder containing the training data of instance images.",
+        help="A txt file with image paths and captions",
     )
     parser.add_argument(
         "--class_data_dir",
@@ -147,20 +147,6 @@ def config_parser():
         default=None,
         required=False,
         help="A folder containing the training data of class images.",
-    )
-    parser.add_argument(
-        "--instance_prompt",
-        type=str,
-        default=None,
-        required=True,
-        help="The prompt with identifier specifying the instance",
-    )
-    parser.add_argument(
-        "--instance_token",
-        type=str,
-        default=None,
-        required=True,
-        help="The dreambooth token, only used when instance_prompt is a path",
     )
     parser.add_argument(
         "--class_prompt",
@@ -172,7 +158,8 @@ def config_parser():
         "--validation_prompt",
         type=str,
         default=None,
-        help="A prompt that is used during validation to verify that the model is learning.",
+        help="A prompt that is used during validation to verify that the model is learning. \
+              Can be a single prompt or a text file of prompts.",
     )
     parser.add_argument(
         "--num_validation_images",
@@ -244,7 +231,7 @@ def config_parser():
         help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",
     )
     parser.add_argument(
-        "--checkpointing_steps",
+        "--checkpointing_epochs",
         type=int,
         default=500,
         help=(
@@ -419,9 +406,7 @@ class DreamBoothDataset(Dataset):
 
     def __init__(
         self,
-        instance_data_root,
-        instance_prompt,
-        instance_token,
+        instance_data,
         tokenizer,
         class_data_root=None,
         class_prompt=None,
@@ -432,24 +417,18 @@ class DreamBoothDataset(Dataset):
         self.center_crop = center_crop
         self.tokenizer = tokenizer
 
-        self.instance_data_root = Path(instance_data_root)
-        if not self.instance_data_root.exists():
-            raise ValueError("Instance images root doesn't exists.")
+        self.instance_images_path = []
+        self.path2prompt = {}
+        with open(instance_data, 'r') as f:
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            if line.startswith('#'):
+                k = Path(line[2:].strip())
+                v = lines[i+1].strip()
+                self.instance_images_path.append(k)
+                self.path2prompt[k] = v
 
-        self.instance_images_path = list(Path(instance_data_root).iterdir())
         self.num_instance_images = len(self.instance_images_path)
-        if os.path.exists(instance_prompt):
-            with open(instance_prompt, 'r') as f:
-                lines = f.readlines()
-
-            self.instance_prompt = {}
-            for i, line in enumerate(lines):
-                if line.startswith('#'):
-                    k = Path(line[2:].strip())
-                    v = lines[i+1].strip()
-                    self.instance_prompt[k] = instance_token + ', ' + v
-        else:
-            self.instance_prompt = instance_prompt
         self._length = self.num_instance_images
 
         if class_data_root is not None:
@@ -481,7 +460,7 @@ class DreamBoothDataset(Dataset):
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
         example["instance_images"] = self.image_transforms(instance_image)
-        instance_prompt = self.instance_prompt[instance_images_path] if type(self.instance_prompt) == dict else self.instance_prompt
+        instance_prompt = self.path2prompt[instance_images_path]
         example["instance_prompt_ids"] = self.tokenizer(
             instance_prompt,
             truncation=True,
@@ -781,9 +760,7 @@ def main(args):
 
     # Dataset and DataLoaders creation:
     train_dataset = DreamBoothDataset(
-        instance_data_root=args.instance_data_dir,
-        instance_prompt=args.instance_prompt,
-        instance_token=args.instance_token,
+        instance_data=args.instance_data,
         class_data_root=args.class_data_dir if args.with_prior_preservation else None,
         class_prompt=args.class_prompt,
         tokenizer=tokenizer,
@@ -943,16 +920,6 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
 
-                if global_step % args.checkpointing_steps == 0:
-                    if accelerator.is_main_process:
-                        save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
-                        accelerator.save_state(save_path)
-                        logger.info(f"Saved state to {save_path}")
-
-                        # save lora layers
-                        unet_out = unet.to(torch.float32)
-                        unet_out.save_attn_procs(save_path)
-
             logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
@@ -961,6 +928,17 @@ def main(args):
                 break
 
         if accelerator.is_main_process:
+
+            if (epoch+1) % args.checkpointing_epochs == 0:
+                if accelerator.is_main_process:
+                    save_path = os.path.join(args.output_dir, f"checkpoint-ep-{epoch+1}-gs-{global_step}")
+                    accelerator.save_state(save_path)
+                    logger.info(f"Saved state to {save_path}")
+
+                    # save lora layers
+                    unet_out = unet.to(torch.float32)
+                    unet_out.save_attn_procs(save_path)
+
             if args.validation_prompt is not None and (epoch+1) % args.validation_epochs == 0:
                 logger.info(
                     f"Running validation... \n Generating {args.num_validation_images} images with prompt:"

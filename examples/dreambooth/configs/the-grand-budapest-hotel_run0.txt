@@ -1,20 +1,18 @@
 # Paths
 pretrained_model_name_or_path = runwayml/stable-diffusion-v1-5
-instance_data_dir = data/tgbh/images
-output_dir = ckpts/tgbh_run2
+instance_data = data/the-grand-budapest-hotel/prompts/dreambooth_t5xl_l2_r1-5.txt
+output_dir = ckpts/the-grand-budapest-hotel_run0
 
 # Training
-instance_prompt = "data/tgbh.txt"
-instance_token = "tgbh"
 resolution = 512
 train_batch_size = 1
 gradient_accumulation_steps = 1
-checkpointing_steps = 2375
+checkpointing_epochs = 50
+num_train_epochs = 500
 learning_rate = 1e-4
 report_to = wandb
 lr_scheduler = constant
 lr_warmup_steps = 0
-max_train_steps = 237500
 seed = 0
 
 # Validation

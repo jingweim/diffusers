@@ -174,8 +174,10 @@ tags
 .ruff_cache
 
 # Custom
+examples/dreambooth/ckpts_v0/
 examples/dreambooth/ckpts/
+examples/dreambooth/data_v0/
 examples/dreambooth/data/
-examples/dreambooth/data-manual/
+examples/dreambooth/configs_v0/
 examples/dreambooth/wandb/
 examples/dreambooth/prior/
