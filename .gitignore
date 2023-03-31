@@ -175,7 +175,6 @@ tags
 
 # Custom
 examples/dreambooth/ckpts/
-examples/dreambooth/configs/
 examples/dreambooth/data/
 examples/dreambooth/data-manual/
 examples/dreambooth/wandb/
