@@ -534,6 +534,58 @@ def get_full_repo_name(model_id: str, organization: Optional[str] = None, token:
         return f"{organization}/{model_id}"
 
 
+def validation_step(args, epoch, logger, accelerator, unet, text_encoder, weight_dtype):
+    if args.report_to == "wandb":
+        if not is_wandb_available():
+            raise ImportError("Make sure to install wandb if you want to use it for logging during training.")
+        import wandb
+
+    # load validation prompt if it is a file
+    if os.path.exists(args.validation_prompt):
+        prompts = open(args.validation_prompt, 'r').readlines()
+        prompts = [prompt.strip() for prompt in prompts]
+    else:
+        prompts = [args.validation_prompt]
+
+    logger.info(
+        f"Running validation... \n Generating {args.num_validation_images} images each prompt, \
+        for a total of {len(prompts)} prompts."
+    )
+
+    # create pipeline
+    pipeline = DiffusionPipeline.from_pretrained(
+        args.pretrained_model_name_or_path,
+        unet=accelerator.unwrap_model(unet),
+        text_encoder=accelerator.unwrap_model(text_encoder),
+        revision=args.revision,
+        torch_dtype=weight_dtype,
+    )
+    pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config)
+    pipeline = pipeline.to(accelerator.device)
+    pipeline.set_progress_bar_config(disable=True)
+
+    # run inference
+    val_log = {}
+    for prompt in prompts:
+        generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
+        images = pipeline(prompt, num_inference_steps=25, generator=generator, \
+                    num_images_per_prompt=args.num_validation_images).images
+        val_log[f"validation prompt: {prompt}"] = images
+
+    for tracker in accelerator.trackers:
+        if tracker.name == "tensorboard":
+            for (caption, images) in val_log.items():
+                np_images = np.stack([np.asarray(img) for img in images])
+                tracker.writer.add_images(caption, np_images, epoch, dataformats="NHWC")
+        if tracker.name == "wandb":
+            for (caption, images) in val_log.items():
+                val_log[caption] = [wandb.Image(image) for i, image in enumerate(images)]
+            tracker.log(val_log)
+
+    del pipeline
+    torch.cuda.empty_cache()
+
+
 def main(args):
     logging_dir = Path(args.output_dir, args.logging_dir)
 
@@ -854,6 +906,11 @@ def main(args):
 
     for epoch in range(first_epoch, args.num_train_epochs):
         unet.train()
+        # validation before training begins
+        if accelerator.is_main_process:
+            if epoch == 0:
+                validation_step(args, epoch, logger, accelerator, unet, text_encoder, weight_dtype)
+
         for step, batch in enumerate(train_dataloader):
             # Skip steps until we reach the resumed step
             if args.resume_from_checkpoint and epoch == first_epoch and step < resume_step:
@@ -928,7 +985,6 @@ def main(args):
                 break
 
         if accelerator.is_main_process:
-
             if (epoch+1) % args.checkpointing_epochs == 0:
                 if accelerator.is_main_process:
                     save_path = os.path.join(args.output_dir, f"checkpoint-ep-{epoch+1}-gs-{global_step}")
@@ -940,45 +996,9 @@ def main(args):
                     unet_out.save_attn_procs(save_path)
 
             if args.validation_prompt is not None and (epoch+1) % args.validation_epochs == 0:
-                logger.info(
-                    f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
-                    f" {args.validation_prompt}."
-                )
-                # create pipeline
-                pipeline = DiffusionPipeline.from_pretrained(
-                    args.pretrained_model_name_or_path,
-                    unet=accelerator.unwrap_model(unet),
-                    text_encoder=accelerator.unwrap_model(text_encoder),
-                    revision=args.revision,
-                    torch_dtype=weight_dtype,
-                )
-                pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config)
-                pipeline = pipeline.to(accelerator.device)
-                pipeline.set_progress_bar_config(disable=True)
+                validation_step(args, epoch, logger, accelerator, unet, text_encoder, weight_dtype)
 
-                # run inference
-                generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
-                images = [
-                    pipeline(args.validation_prompt, num_inference_steps=25, generator=generator).images[0]
-                    for _ in range(args.num_validation_images)
-                ]
 
-                for tracker in accelerator.trackers:
-                    if tracker.name == "tensorboard":
-                        np_images = np.stack([np.asarray(img) for img in images])
-                        tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
-                    if tracker.name == "wandb":
-                        tracker.log(
-                            {
-                                "validation": [
-                                    wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-                                    for i, image in enumerate(images)
-                                ]
-                            }
-                        )
-
-                del pipeline
-                torch.cuda.empty_cache()
 
     # Save the lora layers
     accelerator.wait_for_everyone()

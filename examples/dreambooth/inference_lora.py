@@ -28,7 +28,6 @@ def generate_step(pipe, prompt, output_dir, seed, num_images_per_prompt, num_inf
 def generate_per_model(args, checkpoint):
 
     # load shared arguments
-    shared_token = args.instance_token if os.path.exists(args.instance_prompt) else args.instance_prompt
     weight_dtype = torch.float16
     seeds = [0, 1, 2, 3, 4]
     num_images_per_prompt = 10
@@ -49,8 +48,7 @@ def generate_per_model(args, checkpoint):
         for i, line in enumerate(lines):
             if line.startswith('##'):
                 run = line[2:].strip()
-                prompt_add = lines[i+2].strip()
-                prompt = shared_token + ', ' + prompt_add
+                prompt = lines[i+2].strip()
                 for seed in seeds:
                     output_dir = os.path.join(args.output_dir, 'inference', checkpoint, run, 'seed_%02d' % seed)
                     # skip if already generated
@@ -69,6 +67,7 @@ def generate_per_model(args, checkpoint):
 
     # free gpu memory
     del pipe
+    torch.cuda.empty_cache()
 
 
 # load args from config txt

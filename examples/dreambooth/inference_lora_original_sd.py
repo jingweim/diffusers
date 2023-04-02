@@ -31,7 +31,7 @@ keywords = ['yessydo', 'eilema', 'ctcf', 'drwde', 'hpatss', 'noitpecni', 'itmfl'
             'tgbh', 'dnegel', 'knhswhs', 'gninihs', 'namurt', 'cntt']
 
 for keyword in keywords:
-    set_seed(seed=0)
+    set_seed(seed=seed)
     out_dir = os.path.join(out_root, keyword)
     if not os.path.exists(out_dir):
         images = pipe(keyword, num_inference_steps=num_inference_steps, \
