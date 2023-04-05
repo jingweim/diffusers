@@ -11,15 +11,28 @@ python train_dreambooth_lora.py --config configs/movies20_run0.txt
 1) For prompt with token, how has the model changed
 2) For prompt without token, how has the model changed
 
-## inference_ckpts.txt format/example (experiment specific)
+In txts, all lines after dashed line are ignored (i.e. ----------------------------)
+The script automatically checks for already generated image folders and skip them
+
+## inference_ckpts.txt format/example
 Row1 -> # checkpoint-ep-5-gs-25825
 Row2 -> # checkpoint-ep-10-gs-51650
+Row3 -> --------------------------------
+Row4 -> # checkpoint-ep-20-gs-103300
 
-## inference_tokens.txt format/example (experiment specific)
+## inference_tokens.txt format/example
 Row1 -> # 
 Row2 -> # tgbh
 
-## inference_prompts.txt format (shared)
+## inference_seeds.txt format/example
+Row1 -> # 0
+Row2 -> --------------------------------
+Row3 -> # 1
+Row4 -> # 2
+Row5 -> # 3
+Row6 -> # 4
+
+## inference_prompts.txt format
 Row01 -> ## run0
 Row02 -> # blank prompt, just to see what's learned for token
 Row03 -> 
@@ -40,7 +53,7 @@ Row11 -> bedroom
 
 ### Step1: Generating prior (original SD)
 ```
-## Prepare inference_prompts.txt and inference_ckpts.txt 
+## Prepare inference_prompts.txt, inference_ckpts.txt, inference_seeds.txt, and inference_tokens.txt, then run
 python inference_lora_original_sd.py
 
 ## Output folder structure (seed=0)
@@ -59,7 +72,7 @@ ckpts/
 
 ### Step2: Inference
 ```
-## Prepare inference_prompts.txt, inference_ckpts.txt and inference_tokens.txt, then run
+## Prepare inference_prompts.txt, inference_ckpts.txt, inference_seeds.txt, and inference_tokens.txt, then run
 python inference_lora.py --config configs/movies20_run0.txt
 
 ## Output folder structure
@@ -81,7 +94,7 @@ ckpts/
 
 ### Step3: Inference (cfg on token)
 ```
-## Prepare inference_prompts.txt, inference_ckpts.txt and inference_tokens.txt, then run
+## Prepare inference_prompts.txt, inference_ckpts.txt, inference_seeds.txt, and inference_tokens.txt, then run
 python inference_lora_cfg.py --config configs/movies20_run0.txt
 
 ## Output folder structure
