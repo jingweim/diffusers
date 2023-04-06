@@ -1,0 +1,47 @@
+## run0
+# blank prompt, just to see what's learned for token
+
+
+## run1
+# simple prompt, unseen object
+dog
+
+## run2
+# simple prompt, maybe-seen object
+bedroom
+
+## run3
+# simple prompt, def-seen object
+a man
+
+## run4
+# simple prompt, def-seen object
+a woman
+
+## run5
+# detailed prompt, from the grand budapest hotel
+a man in a tuxedo is standing in a room with a lot of luggage
+
+## run6
+# detailed prompt, from the shining
+a little boy is riding a blue toy tricycle down a hallway
+
+## run7
+# detailed prompt, from amelie
+a woman in an orange polka dot dress is standing in front of a door
+
+## run8
+# detailed prompt, from psycho
+a woman in a dress standing in front of a window in the rain
+
+## run9
+# detailed prompt, from psycho, with black+white text
+a black and white photo of a woman in a dress standing in front of a window in the rain
+
+## run10
+# detailed prompt, from everything everywhere all at once
+an asian woman doing push ups on a wooden platform
+
+## run11
+# detailed prompt, from in the mood for love
+a woman sitting on a chair reading a newspaper

@@ -218,7 +218,7 @@ class StableDiffusionPipeline(DiffusionPipeline):
 
     def _encode_prompt(
         self,
-        prompt, shared_token, 
+        prompt, token, 
         device,
         num_images_per_prompt,
         do_classifier_free_guidance,
@@ -339,9 +339,9 @@ class StableDiffusionPipeline(DiffusionPipeline):
             negative_prompt_embeds = negative_prompt_embeds[0]
 
         
-        if shared_token:
+        if token:
             text_inputs = self.tokenizer(
-                shared_token + ', ' + prompt,
+                token + ', ' + prompt,
                 padding="max_length",
                 max_length=self.tokenizer.model_max_length,
                 truncation=True,
@@ -391,7 +391,7 @@ class StableDiffusionPipeline(DiffusionPipeline):
             # For classifier free guidance, we need to do two forward passes.
             # Here we concatenate the unconditional and text embeddings into a single batch
             # to avoid doing two forward passes
-            if shared_token:
+            if token:
                 prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds, token_prompt_embeds])
             else:
                 prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
@@ -502,12 +502,12 @@ class StableDiffusionPipeline(DiffusionPipeline):
     def __call__(
         self,
         prompt: Union[str, List[str]] = None,
-        shared_token: str = None,
+        token: str = None,
         height: Optional[int] = None,
         width: Optional[int] = None,
         num_inference_steps: int = 50,
         guidance_scale: float = 7.5,
-        guidance_scale_db: float = 7.5,
+        guidance_scale_2: float = 7.5,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         num_images_per_prompt: Optional[int] = 1,
         eta: float = 0.0,
@@ -590,6 +590,9 @@ class StableDiffusionPipeline(DiffusionPipeline):
             list of `bool`s denoting whether the corresponding generated image likely represents "not-safe-for-work"
             (nsfw) content, according to the `safety_checker`.
         """
+
+        assert token != "", "This script adjusts token guidance scale. A token must be provided."
+
         # 0. Default height and width to unet
         height = height or self.unet.config.sample_size * self.vae_scale_factor
         width = width or self.unet.config.sample_size * self.vae_scale_factor
@@ -615,7 +618,7 @@ class StableDiffusionPipeline(DiffusionPipeline):
 
         # 3. Encode input prompt
         prompt_embeds = self._encode_prompt(
-            prompt, shared_token,
+            prompt, token,
             device,
             num_images_per_prompt,
             do_classifier_free_guidance,
@@ -649,7 +652,10 @@ class StableDiffusionPipeline(DiffusionPipeline):
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 # expand the latents if we are doing classifier free guidance
-                latent_model_input = torch.cat([latents] * 3) if do_classifier_free_guidance else latents
+                if token:
+                    latent_model_input = torch.cat([latents] * 3) if do_classifier_free_guidance else latents
+                else:
+                    latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
                 # predict the noise residual
@@ -662,8 +668,13 @@ class StableDiffusionPipeline(DiffusionPipeline):
 
                 # perform guidance
                 if do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text, noise_pred_token_text = noise_pred.chunk(3)
-                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond) + guidance_scale_db * (noise_pred_token_text - noise_pred_text)
+                    if token:
+                        noise_pred_uncond, noise_pred_text, noise_pred_token_text = noise_pred.chunk(3)
+                        noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond) + guidance_scale_2 * (noise_pred_token_text - noise_pred_text)
+                    else:
+                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                        noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
