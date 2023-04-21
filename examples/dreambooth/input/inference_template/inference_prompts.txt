@@ -45,3 +45,55 @@ an asian woman doing push ups on a wooden platform
 ## run11
 # detailed prompt, from in the mood for love
 a woman sitting on a chair reading a newspaper
+
+## run12
+# detailed prompt, from titanic
+a woman in a green dress with a large hat on her head
+
+## run13
+# detailed prompt, from 2001: a space odyssey
+a woman is walking down the aisle of an airplane
+
+## run14
+# detailed prompt, from charlie and the chocolate factory
+a woman is cooking in a kitchen with a stove and utensils
+
+## run15
+# detailed prompt, from edward scissorhands
+a woman in a red dress is standing next to a girl in a bed
+
+## run16
+# detailed prompt, from harry potter
+a woman in a white dress standing in front of a stone wall
+
+## run17
+# detailed prompt, from inception
+a woman standing next to a lamp in a dark room with a painting on the wall
+
+## run18
+# detailed prompt, from la la land
+a woman sitting in the back seat of a car with a laptop on her lap
+
+## run19
+# detailed prompt, from midnight in paris
+a man and a woman toasting wine glasses at a table in front of a group of people
+
+## run20
+# detailed prompt, from moonrise kingdom
+a woman in an orange dress standing next to a cat in a room with a piano
+
+## run21
+# detailed prompt, from shutter island
+a woman in a yellow floral shirt is holding a cigarette and looking out of a window
+
+## run22
+# detailed prompt, from tenet
+a woman in a grey suit with a brown bag walking down the street
+
+## run23
+# detailed prompt, from legend of 1900
+a woman sitting on the railing of a boat looking out at the ocean
+
+## run24
+# detailed prompt, from shawshank's redemption
+a woman in a green apron standing next to a man in a green apron at a grocery store
