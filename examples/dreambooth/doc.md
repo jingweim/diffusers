@@ -19,6 +19,7 @@ ckpts/
     inference_tokens.txt
     [null]/
       run0/
+        args.txt
         000.png
         001.png
         ...
@@ -40,7 +41,7 @@ python train_dreambooth_lora.py --config configs/movies20_run0.txt
 </pre>
 
 ## Evaluation
-Prior to evaluating a model, put [inference txt configuration files](https://github.com/jingweim/diffusers/edit/main/examples/dreambooth/doc.md#inference-txt-configuration-files-format) (i.e. `inference_prompts.txt`, `inference_tokens.txt`, `inference_ckpts.txt`, `inference_seeds.txt`) into the model folder (e.g. `ckpts/movies20_run0`) and modify them to specify desired inputs.
+Prior to evaluating a model, put [inference txt configuration files](https://github.com/jingweim/diffusers/edit/main/examples/dreambooth/doc.md#inference-txt-configuration-files-format) (i.e. `inference_prompts.txt`, `inference_tokens.txt` or `inference_tokens_cfg_mix.txt`, `inference_ckpts.txt`, `inference_seeds.txt`) into the model folder (e.g. `ckpts/movies20_run0`) and modify them to specify desired inputs.
 
 For single-movie and multi-movie dreambooth models, we want to evaluate to find out:
 <pre>
@@ -55,6 +56,7 @@ ckpts/
         [null]/
           run0/
             seed_00/
+              args.txt
               000.png
               001.png
               ...
@@ -73,7 +75,7 @@ ckpts/
 <b>2) What does the model generate when we tune token strength (guidance scale)?</b>
 python inference_lora_cfg.py --config configs/movies20_run0.txt
 
-<b>## Output folder structure (generates 1 video per seed, doesn't accept null token)</b>
+<b>## Output folder structure (generates 1 video per seed, ignores null token)</b>
 ckpts/
   movies20_run0/
     inference_cfg/
@@ -125,23 +127,27 @@ ckpts/
 </pre>
 
 ## Inference txt configuration files
-There are four txt files: `inference_prompts.txt`, `inference_tokens.txt`, `inference_ckpts.txt`, `inference_seeds.txt`. Before running inference, put them in the model folder (e.g. `ckpts/movies20_run0`) and modify them to specify desired inputs. Given the model config file (e.g. `configs/movies20_run0.txt`), the inference scripts automatically loads these txt files and generates results for all combinations of prompts, tokens, ckpts, and seeds.  
+Running inference requires four types of txt files: `inference_prompts.txt`, `inference_tokens.txt` or `inference_tokens_cfg_mix.txt`, `inference_ckpts.txt`, `inference_seeds.txt`. Before running inference, put them in the model folder (e.g. `ckpts/movies20_run0`) and modify them to specify desired inputs. Given the model config file (e.g. `configs/movies20_run0.txt`), the inference scripts automatically loads these txt files and generates results for all combinations of prompts, tokens, ckpts, and seeds.  
 
 The scripts automatically skips if a combination has already been generated. We can also use a dashed line (i.e. ----------------------------) to ignore tokens/prompts/ckpts/seeds after the line.
 
-Below are some examples of the four txt files (pound`#` signs are required):
+Below are some examples of the four types of txt files (pound`#` signs are required):
 <pre>
-<b>## inference_ckpts.txt format/example (ep-5 ignored due to dashed line)</b>
+<b>## inference_ckpts.txt format/example</b> (ep-5 ignored due to dashed line)
 Row1 -> # checkpoint-ep-20-gs-103300
 Row2 -> # checkpoint-ep-10-gs-51650
 Row3 -> --------------------------------
 Row4 -> # checkpoint-ep-5-gs-25825
 
-<b>## inference_tokens.txt format/example (row1 is null token)</b>
+<b>## inference_tokens.txt format/example</b> (row1 is null token)
 Row1 -> # 
 Row2 -> # tgbh
 
-<b>## inference_seeds.txt format/example (seed 1,2,3,4 ignored due to dashed line)</b>
+<b>## inference_tokens_cfg_mix.txt format/example </b> (this instead of inference_token.txt for inference_lora_cfg_mix.py)
+Row1 -> # cntt, ctcf
+Row2 -> # gninihs, ohcysp
+
+<b>## inference_seeds.txt format/example</b> (seed 1,2,3,4 ignored due to dashed line)
 Row1 -> # 0
 Row2 -> --------------------------------
 Row3 -> # 1
@@ -149,7 +155,7 @@ Row4 -> # 2
 Row5 -> # 3
 Row6 -> # 4
 
-<b>## inference_prompts.txt format (1st line = output folder, 2nd line = comments, 3rd line = prompt)</b>
+<b>## inference_prompts.txt format</b> (1st line = output folder, 2nd line = comments, 3rd line = prompt)
 Row01 -> ## run0
 Row02 -> # blank prompt, just to see what's learned for token
 Row03 -> 
