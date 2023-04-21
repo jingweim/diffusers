@@ -26,7 +26,7 @@ def generate_step(pipe, prompt, out_dir, seed, num_images_per_prompt, num_infere
         image.save(os.path.join(out_dir, '%03d.png' % i))
 
 
-def generate_per_model(args, checkpoint):
+def generate_per_model(args, checkpoint, out_root, token_lines, prompt_lines, seed_lines):
 
     # load shared arguments
     weight_dtype = torch.float16
@@ -42,12 +42,7 @@ def generate_per_model(args, checkpoint):
     pipe.to("cuda")
     pipe.unet.load_attn_procs(model_id)
 
-    # run model on each token+prompt+seed
-    out_root = args.output_dir
-    token_lines = open(os.path.join(out_root, 'inference_tokens.txt'), "r").readlines()
-    prompt_lines = open(os.path.join(out_root, 'inference_prompts.txt'), "r").readlines()
-    seed_lines = open(os.path.join(out_root, 'inference_seeds.txt'), "r").readlines()
-
+    # generate images
     for token_line in token_lines:
         if token_line.startswith('-----'):
             break
@@ -89,11 +84,19 @@ def generate_per_model(args, checkpoint):
 # load args from config txt
 args = config_parser()
 
+# load txt files
+out_root = args.output_dir
+token_lines = open(os.path.join(out_root, 'inference_tokens.txt'), "r").readlines()
+prompt_lines = open(os.path.join(out_root, 'inference_prompts.txt'), "r").readlines()
+seed_lines = open(os.path.join(out_root, 'inference_seeds.txt'), "r").readlines()
 
 # execute prompts on different models
 with open(os.path.join(args.output_dir, 'inference_ckpts.txt'), 'r') as f:
+    print('txt files loaded-----------------')
     lines = f.readlines()
     for i, line in enumerate(lines):
+        if line.startswith('-----'):
+            break
         if line.startswith('#'):
             model_id = line[2:].strip()
             generate_per_model(args, model_id)

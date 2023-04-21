@@ -9,25 +9,25 @@ from accelerate.utils import set_seed
 from diffusers import DPMSolverMultistepScheduler, DiffusionPipeline
 
 
-# arguments
+# Global arguments
 weight_dtype = torch.float16
 seed = 0
 num_inference_steps = 50
 guidance_scale = 7.5
 num_images_per_prompt = 10
 
+# Load txt files
+out_root = 'ckpts/original_sd/'
+tokens = open(os.path.join(out_root, 'inference_tokens.txt'), "r").readlines()
+prompts = open(os.path.join(out_root, 'inference_prompts.txt'), "r").readlines()
+print('txt files loaded-----------------')
 
 # Load model
 pipe = DiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", torch_dtype=weight_dtype)
 pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe.to("cuda")
 
-
-# generate images
-out_root = 'ckpts/original_sd/'
-tokens = open(os.path.join(out_root, 'inference_tokens.txt'), "r").readlines()
-prompts = open('ckpts/inference_prompts.txt', "r").readlines()
-
+# Generate images
 for token in tokens:
     if token.startswith('# '):
         token = token[2:].strip()
